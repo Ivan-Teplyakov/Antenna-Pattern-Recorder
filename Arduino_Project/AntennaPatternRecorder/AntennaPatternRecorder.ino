@@ -1,5 +1,5 @@
 /**
- * @file:     AntennaPatternRecorder.c
+ * @file:     AntennaPatternRecorder.ino
  *
  * @brief:    Software for antenna pattern recorder based on Arduino Uno
  *
