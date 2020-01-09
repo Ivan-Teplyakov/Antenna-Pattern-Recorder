@@ -195,6 +195,6 @@ void data_receive(void) {
     len += sprintf(data_buff + len, "\n");
     // condition - if count readings during rotation is needed
     // if (motor_state.last_state == ACTIVE_L || motor_state.last_state == ACTIVE_R){
-    Serial.write(data_buff, len); }
+    Serial.write(data_buff, len); 
     interrupts(); //Enable interrupts
 }
