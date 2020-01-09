@@ -18,8 +18,9 @@
 #define PIN_10            10
 #define PIN_11            11
 #define BAUDE_RATE        9600
-#define STEPS             50 // change this to the number of steps on your motor
-#define TIME              200000L
+#define STEPS             30 // change this to the number of steps on your motor
+// at STEPS=30 half of rotation takes 4.39s, TIME=(4.39/180)*1000000=24383
+#define TIME              24383L
 #define LENGTH            5
 #define STEP_0            0
 #define STEP_1            1
@@ -31,7 +32,8 @@
 /// Types
 ///========================================================================================
 typedef enum motor_state_e {
-    ACTIVE = 1,
+    ACTIVE_L = -1, 
+    ACTIVE_R = 1,
     INACTIVE = 0
 };
 
@@ -96,20 +98,31 @@ void loop(void) {
 static void stateStepMotor(void) {
     static bool flag = false;
     switch(motor_state.current_state) {
-        
-        case ACTIVE:
+        //left turn (works correctly if contacts IN2 and IN3 are replaced)
+        case ACTIVE_L:
+        stepper.step(-STEP_1);
+        if (flag == false) {
+            motor_state.last_state = INACTIVE;
+        }
+        else {
+            motor_state.last_state = ACTIVE_L;
+        }
+        flag = true;
+        break;
+         //right turn
+            case ACTIVE_R:
         stepper.step(STEP_1);
         if (flag == false) {
             motor_state.last_state = INACTIVE;
         }
         else {
-            motor_state.last_state = ACTIVE;
+            motor_state.last_state = ACTIVE_R;
         }
         flag = true;
         break;
         
         case INACTIVE:
-        if (motor_state.last_state == ACTIVE) {
+        if (motor_state.last_state == ACTIVE_L || motor_state.last_state == ACTIVE_R) {
             stepper.step(STEP_0);
         }
         motor_state.last_state = INACTIVE;
@@ -117,7 +130,7 @@ static void stateStepMotor(void) {
         break;
         
         default:
-        if (motor_state.last_state == ACTIVE) {
+        if (motor_state.last_state == ACTIVE_L || motor_state.last_state == ACTIVE_R) {
             stepper.step(STEP_0);
         }
         motor_state.last_state == INACTIVE;
@@ -149,7 +162,10 @@ void serialEvent(void){
             motor_state.current_state = INACTIVE;
             break;
             case '1':
-            motor_state.current_state = ACTIVE;
+            motor_state.current_state = ACTIVE_L;
+            break;
+            case '2':
+            motor_state.current_state = ACTIVE_R;
             break;
         }
     }
@@ -177,6 +193,8 @@ void data_receive(void) {
     data = analogRead(ADC);
     len += sprintf(data_buff, "%d", data);
     len += sprintf(data_buff + len, "\n");
-    Serial.write(data_buff, len);
+    // condition - if count readings during rotation is needed
+    // if (motor_state.last_state == ACTIVE_L || motor_state.last_state == ACTIVE_R){
+    Serial.write(data_buff, len); }
     interrupts(); //Enable interrupts
 }
