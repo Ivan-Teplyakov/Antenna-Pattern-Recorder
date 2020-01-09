@@ -17,7 +17,7 @@
 #define PIN_9             9
 #define PIN_10            10
 #define PIN_11            11
-#define BAUDE_RATE        115200
+#define BAUDE_RATE        9600
 #define STEPS             50 // change this to the number of steps on your motor
 #define TIME              200000L
 #define LENGTH            5
