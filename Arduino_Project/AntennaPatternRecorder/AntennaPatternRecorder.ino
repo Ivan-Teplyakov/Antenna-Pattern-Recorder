@@ -13,13 +13,14 @@
 ///========================================================================================
 /// Defines
 ///========================================================================================
+#define interruptPin_2    2
+#define interruptPin_3    3
 #define PIN_8             8
 #define PIN_9             9
 #define PIN_10            10
 #define PIN_11            11
 #define BAUDE_RATE        9600
 #define STEPS             30 // change this to the number of steps on your motor
-// at STEPS=30 half of rotation takes 4.39s, TIME=(4.39/180)*1000000=24383
 #define TIME              24383L
 #define LENGTH            5
 #define STEP_0            0
@@ -70,6 +71,10 @@ void setup(void) {
   //timers interrupts 
   motor_state.last_state = INACTIVE;
   motor_state.current_state = INACTIVE;
+  pinMode(interruptPin_2, INPUT);
+  pinMode(interruptPin_3, INPUT);
+  attachInterrupt(digitalPinToInterrupt(interruptPin_2), stopMotor, RISING);
+  attachInterrupt(digitalPinToInterrupt(interruptPin_3), stopMotor, RISING);
 }
 
 /**
@@ -98,7 +103,6 @@ void loop(void) {
 static void stateStepMotor(void) {
     static bool flag = false;
     switch(motor_state.current_state) {
-        //left turn (works correctly if contacts IN2 and IN3 are replaced)
         case ACTIVE_L:
         stepper.step(-STEP_1);
         if (flag == false) {
@@ -109,7 +113,7 @@ static void stateStepMotor(void) {
         }
         flag = true;
         break;
-         //right turn
+         //поворот вправо
             case ACTIVE_R:
         stepper.step(STEP_1);
         if (flag == false) {
@@ -162,9 +166,11 @@ void serialEvent(void){
             motor_state.current_state = INACTIVE;
             break;
             case '1':
+            if(digitalRead(interruptPin_2)!=1)
             motor_state.current_state = ACTIVE_L;
             break;
             case '2':
+            if(digitalRead(interruptPin_3)!=1)
             motor_state.current_state = ACTIVE_R;
             break;
         }
@@ -193,8 +199,24 @@ void data_receive(void) {
     data = analogRead(ADC);
     len += sprintf(data_buff, "%d", data);
     len += sprintf(data_buff + len, "\n");
-    // condition - if count readings during rotation is needed
-    // if (motor_state.last_state == ACTIVE_L || motor_state.last_state == ACTIVE_R){
+   // if (motor_state.last_state == ACTIVE_L || motor_state.last_state == ACTIVE_R){
     Serial.write(data_buff, len); 
+   // }
+    interrupts(); //Enable interrupts
+}
+
+/**
+ * @brief:  stopMotor()
+ * The function is called when motor comes to one of two endings.
+ * It stops motor.
+ *
+ * @param:  void
+ * @return: void
+ */
+
+void stopMotor(void){
+    noInterrupts(); //Disable interrupts
+    Serial.println("stopMotor");
+    motor_state.current_state = INACTIVE;
     interrupts(); //Enable interrupts
 }
