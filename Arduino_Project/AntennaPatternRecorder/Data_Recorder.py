@@ -23,7 +23,7 @@ for line in data:
 # if using a Jupyter notebook include %matplotlib inline
 
 plt.plot(data)
-plt.xlabel('Time (seconds)')
-plt.ylabel('Potentiometer Reading')
-plt.title('Potentiometer Reading vs. Time')
+plt.xlabel('Degrees')
+plt.ylabel('Data Reading')
+plt.title('Data Reading vs. Degrees')
 plt.show()
