@@ -113,8 +113,7 @@ static void stateStepMotor(void) {
         }
         flag = true;
         break;
-         //поворот вправо
-            case ACTIVE_R:
+        case ACTIVE_R:
         stepper.step(STEP_1);
         if (flag == false) {
             motor_state.last_state = INACTIVE;
@@ -157,7 +156,7 @@ static void stateStepMotor(void) {
  */
 void serialEvent(void){
     noInterrupts(); //Disable interrupts
-    Serial.println("serialEvent");
+    //Serial.println("serialEvent");
     char command;
     if (Serial.available() > 0) {  
         command = (char)Serial.read();
@@ -199,9 +198,9 @@ void data_receive(void) {
     data = analogRead(ADC);
     len += sprintf(data_buff, "%d", data);
     len += sprintf(data_buff + len, "\n");
-   // if (motor_state.last_state == ACTIVE_L || motor_state.last_state == ACTIVE_R){
+    if (motor_state.last_state == ACTIVE_L || motor_state.last_state == ACTIVE_R){
     Serial.write(data_buff, len); 
-   // }
+    }
     interrupts(); //Enable interrupts
 }
 
@@ -216,7 +215,7 @@ void data_receive(void) {
 
 void stopMotor(void){
     noInterrupts(); //Disable interrupts
-    Serial.println("stopMotor");
+   // Serial.println("stopMotor");
     motor_state.current_state = INACTIVE;
     interrupts(); //Enable interrupts
 }
