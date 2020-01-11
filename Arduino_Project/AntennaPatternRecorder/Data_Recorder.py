@@ -5,6 +5,7 @@ import time
 ser = serial.Serial('COM5', 9600)
 time.sleep(2)
 ser.write(b'1')
+time.sleep(8)
 ser.close()
 
 # Rotate motor to the end
