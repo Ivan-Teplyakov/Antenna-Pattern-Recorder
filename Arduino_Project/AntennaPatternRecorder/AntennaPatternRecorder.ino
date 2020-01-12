@@ -21,7 +21,7 @@
 #define PIN_11            11
 #define BAUDE_RATE        9600
 #define STEPS             30 // change this to the number of steps on your motor
-#define TIME              24383L
+#define TIME              24383
 #define LENGTH            5
 #define STOP              0
 #define RIGHT_ROTATION    1
