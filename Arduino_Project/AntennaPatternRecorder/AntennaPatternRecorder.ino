@@ -23,8 +23,9 @@
 #define STEPS             30 // change this to the number of steps on your motor
 #define TIME              24383L
 #define LENGTH            5
-#define STEP_0            0
-#define STEP_1            1
+#define STOP              0
+#define RIGHT_ROTATION    1
+#define LEFT_ROTATION     -1
 #define STEP_MOTOR_SPEED  500
 #define ADC               A0
 
@@ -48,7 +49,7 @@ typedef struct motor_state_s {
 /// Global variables
 ///========================================================================================
 
-Stepper stepper(STEPS, PIN_8, PIN_9, PIN_10, PIN_11); //Instance of the step \
+Stepper stepper(STEPS, PIN_8, PIN_10, PIN_9, PIN_11); //Instance of the step \
 //motor (number of steps and the pins it's attached to)
 volatile motor_state_s motor_state;
 
@@ -104,7 +105,7 @@ static void stateStepMotor(void) {
     static bool flag = false;
     switch(motor_state.current_state) {
         case ACTIVE_L:
-        stepper.step(-STEP_1);
+        stepper.step(LEFT_ROTATION);
         if (flag == false) {
             motor_state.last_state = INACTIVE;
         }
@@ -114,7 +115,7 @@ static void stateStepMotor(void) {
         flag = true;
         break;
         case ACTIVE_R:
-        stepper.step(STEP_1);
+        stepper.step(RIGHT_ROTATION);
         if (flag == false) {
             motor_state.last_state = INACTIVE;
         }
@@ -126,7 +127,7 @@ static void stateStepMotor(void) {
         
         case INACTIVE:
         if (motor_state.last_state == ACTIVE_L || motor_state.last_state == ACTIVE_R) {
-            stepper.step(STEP_0);
+            stepper.step(STOP);
         }
         motor_state.last_state = INACTIVE;
         motor_state.current_state = INACTIVE;
@@ -134,9 +135,9 @@ static void stateStepMotor(void) {
         
         default:
         if (motor_state.last_state == ACTIVE_L || motor_state.last_state == ACTIVE_R) {
-            stepper.step(STEP_0);
+            stepper.step(STOP);
         }
-        motor_state.last_state == INACTIVE;
+        motor_state.last_state = INACTIVE;
         motor_state.current_state = INACTIVE;
     }
 }
