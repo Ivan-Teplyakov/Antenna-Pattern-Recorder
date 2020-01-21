@@ -1,0 +1,13 @@
+This is instruction for creation of application for Antenna Pattern Recorder. 
+Do next steps:
+
+1. If cx_Freeze python module is not installed on your PC, open cmd prompt and enter next command:
+pip install cx_Freeze
+otherwise skip this item.
+
+2. After installation cx_Freeze close current cmd prompt.
+
+3. Go to the folder were the python project is located, open cmd promt from this folder and enter next command:
+python setup.py bdist_msi
+
+4. Aplicatiion will be generated into dist folder.
