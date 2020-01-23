@@ -1,21 +1,28 @@
 import tkinter
-import time
 import serial
+import threading
+import time
+from matplotlib.backends.backend_tkagg import (
+    FigureCanvasTkAgg, NavigationToolbar2Tk)
+from matplotlib.backend_bases import key_press_handler
+import matplotlib.pyplot as plt
 
+
+   
 ser = serial.Serial()
 com_port = 'com4'
 baud_rate = 9600
 steps = 30
 timer = 24383
+stop = False
+data_ADC = list()
+degree = list()
+motor_state = False
+number = 0
+thread_flag = False
 
-from matplotlib.backends.backend_tkagg import (
-    FigureCanvasTkAgg, NavigationToolbar2Tk)
-# Implement the default Matplotlib key bindings.
-from matplotlib.backend_bases import key_press_handler
-from matplotlib.figure import Figure
 
-import matplotlib.pyplot as plt
-   
+
 def serial_port_init():
     """
     Initialization of serial port
@@ -23,15 +30,77 @@ def serial_port_init():
 
     ser.port = com_port
     ser.baudrate = baud_rate
-    ser.timeout = 2
+    ser.timeout = 0.8
+    ser.write_timeout=0.1
 
     print('Baud Rate =',baud_rate)
     print('Com Port =',com_port)
+    
 
-data_ADC = list()
-degree = list()
-motor_state = False
+def threadRightRotation():
+    cmd = b'1'
+    if ser.isOpen() is False:
+        ser.open()
 
+    ser.readline()
+    ser.write(cmd) 
+
+
+def threadStop():
+    cmd = b'0'
+
+    if ser.isOpen() is False:
+        ser.open()
+
+    ser.readline()
+    ser.write(cmd)
+    #ser.close()    
+    
+
+def threadLeftRotation():
+    cmd = b'2'
+    if ser.isOpen() is False:
+        ser.open()
+
+    ser.readline()
+    ser.write(cmd) 
+
+def treadDataProcessing():
+        
+    global data_ADC
+    global degree
+    global stop
+    global number
+    global thread_flag
+            
+    while stop is False and number <= 181 and ser.isOpen:
+        ser.flushInput()
+        try:
+            data = ser.readline()
+        except serial.SerialException:
+            print("Serial port is not open")
+        except serial.serialutil.SerialException:
+            print("Serial port is not open")
+        except AttributeError:
+            print("Invalid data")
+        else:    
+            if data != b'\n' and data != b'\0' and data != b'':
+                try:
+                    data = data.decode('ascii')
+                    data = int(data)
+                except ValueError:
+                    print("Incorrect input data")
+                except TypeError:
+                    print("Incorrect input data")    
+                else:
+                    data_ADC.append(data)       
+                    degree.append(number)
+                    number += 1
+
+    thread_flag = False
+    number = 0
+    data_ADC = []
+    degree = []
 
 # Creating class SetupBar
 class SetupBar(tkinter.Frame):
@@ -88,16 +157,20 @@ class SetupBar(tkinter.Frame):
 class WorkSpace(tkinter.Frame):
 
     # Define settings upon initialization. Here you can specify
-    def __init__(self, parent=None):
+    def __init__(self, parent):
         
         # parameters that you want to send through the Frame class. 
         tkinter.Frame.__init__(self, parent)   
 
         #reference to the master widget, which is the tk window                 
-        #self.master = master
+        self.parent = parent
 
         #plot instanses
         self.fig, self.ax = plt.subplots()
+        
+        self.canvas = FigureCanvasTkAgg(self.fig, master=self.parent)  # A tk.DrawingArea.
+        self.toolbar = NavigationToolbar2Tk(self.canvas, self.parent)
+        self.toolbar.pack(side=tkinter.BOTTOM)
 
         #with that, we want to then run init_window, which doesn't yet exist
         self.init_window()
@@ -106,7 +179,7 @@ class WorkSpace(tkinter.Frame):
     def init_window(self):
 
         self.menu = tkinter.Menu(self.master)
-        self.master.config(menu=self.menu)
+        self.parent.config(menu=self.menu)
 
         # create the file object)
         self.file = tkinter.Menu(self.menu)
@@ -118,54 +191,75 @@ class WorkSpace(tkinter.Frame):
 
         # changing the title of our master widget      
         self.master.title("Graphic Interface for Antenna Pattern Recorder")
+        self.master.iconbitmap('clienticon.ico')
 
         # allowing the widget to take the full space of the root window
         #self.pack(fill=tkinter.BOTH, expand=1)
 
         self.plot()
 
-        self.canvas = FigureCanvasTkAgg(self.fig, self)  # A tk.DrawingArea.
+        #self.canvas = FigureCanvasTkAgg(self.fig, master=self.master)  # A tk.DrawingArea.
         self.canvas.draw()
         self.canvas.get_tk_widget().pack(side=tkinter.TOP, fill=tkinter.BOTH, expand=1)
 
-        self.toolbar = NavigationToolbar2Tk(self.canvas, self)
+        #self.toolbar = NavigationToolbar2Tk(self.canvas, self.master)
         self.toolbar.update()
         self.canvas.get_tk_widget().pack(side=tkinter.TOP, fill=tkinter.BOTH, expand=1)
 
         # creating a button instances
-        self.button_quit = tkinter.Button(self, text="Quit", command=self._quit)
+        self.button_quit = tkinter.Button(master=self.parent, text="Quit", command=self._quit)
         self.button_quit.pack(side=tkinter.RIGHT)
 
-        self.button_read_data = tkinter.Button(self, text="Plot", command=self.read_data)
+        self.button_read_data = tkinter.Button(master=self.parent, text="Plot", command=self.dataProcessing)
         self.button_read_data.pack(side=tkinter.RIGHT)
 
-        self.button_clear = tkinter.Button(self, text="Clear", command=self.clear)
+        self.button_clear = tkinter.Button(master=self.parent, text="Clear", command=self.clear)
         self.button_clear.pack(side=tkinter.RIGHT)
 
-        self.leftRotation = tkinter.Button(self, text="Left Rotation", command=self.leftRotation)
-        self.leftRotation.pack(side=tkinter.LEFT)
+        self.leftRotation = tkinter.Button(master=self.parent, text="Left Rotation", command=self.leftRotation)
+        self.leftRotation.pack(side=tkinter.LEFT, padx=0)
 
-        self.button_stop = tkinter.Button(self, text="Stop", command=self.stop)
+        self.button_stop = tkinter.Button(master=self.parent, text="Stop", command=self.stop)
         self.button_stop.pack(side=tkinter.LEFT)
+        #self.button_stop.place(x=600,y=600)
 
-        self.button_rightRotation = tkinter.Button(self, text="Right Rotation", command=self.rightRotation)
+        self.button_rightRotation = tkinter.Button(master=self.parent, text="Right Rotation", command=self.rightRotation)
         self.button_rightRotation.pack(side=tkinter.LEFT)
 
-        self.button_start = tkinter.Button(self, text="Start record pattern", command=self.start_record)
+        self.button_start = tkinter.Button(master=self.parent, text="Start record pattern", command=self.start_record)
         self.button_start.pack(side=tkinter.LEFT)
 
     def start_record(self):
         self.leftRotation()
         
     def plot(self):
-        self.ax.clear()
-        self.ax.set(xlabel='Numers', ylabel='ADC data', title='Antenna Pattern')
+        
+        global degree
+        global data_ADC
+        global thread_flag
+        global number
+        global stop
+        
+        self.ax.set(xlabel='Numbers', ylabel='ADC data', title='Antenna Pattern')
         self.ax.set_xlim(left = 0, right = 180)
         self.ax.set_ylim(bottom = 0, top = 1100)
         self.ax.plot(degree, data_ADC)
         self.ax.grid()
+        self.canvas.draw()
+        self.toolbar.update()
+        if thread_flag is True and stop is False and number <= 180:
+            self.parent.after(10, self.plot)
+            self.ax.clear()
+        else:
+            self.parent.after_cancel(self.plot)
 
     def clear(self):
+
+        global degree
+        global data_ADC
+        global number
+        global thread_flag
+        
         self.ax.clear()
         self.ax.set(xlabel='Numers', ylabel='ADC data', title='Antenna Pattern')
         self.ax.set_xlim(left = 0, right = 180)
@@ -173,6 +267,11 @@ class WorkSpace(tkinter.Frame):
         self.ax.grid()
         self.canvas.draw()
         self.toolbar.update()
+
+        if stop is True or thread_flag is False:
+            number = 0
+            data_ADC = []
+            degree = []
 
     def leftRotation(self):
         """
@@ -180,18 +279,10 @@ class WorkSpace(tkinter.Frame):
         It writes '2' to the com port
         """
 
-        global motor_state
-        cmd = b'2'
-        try:
-            ser.open()
-        except serial.SerialException:
-            ser.close()
-            ser.open()
-        finally:
-            ser.readline()
-            ser.write(cmd)
-
-        motor_state = True      
+        global stop
+        stop = False
+        thread_lr = threading.Thread(target=threadLeftRotation,)
+        thread_lr.start()      
 
     def stop(self):
         """
@@ -199,18 +290,10 @@ class WorkSpace(tkinter.Frame):
         It writes '0' to the com port
         """
 
-        global motor_state
-        cmd = b'0'
-        try:
-            ser.open()
-        except serial.SerialException:
-            ser.close()
-            ser.open()
-        finally:
-            ser.readline()
-            ser.write(cmd)
-
-        motor_state = False
+        global stop
+        stop = True
+        thread_s = threading.Thread(target=threadStop,)
+        thread_s.start()
 
     def rightRotation(self):
         """
@@ -218,59 +301,46 @@ class WorkSpace(tkinter.Frame):
         It writes '1' to the com port
         """
 
-        global motor_state
-        cmd = b'1'
-        try:
-            ser.open()
-        except serial.SerialException:
-            ser.close()
-            ser.open()
-        finally:
-            ser.readline()
-            ser.write(cmd)
+        global stop
+        stop = False
+        thread_rr = threading.Thread(target=threadRightRotation,)
+        thread_rr.start()
 
-        motor_state = True
-
-    def read_data(self):
+    def dataProcessing(self):
 
         global data_ADC
         global degree
         global motor_state
-        number = 0
+        global number
+        global stop
+        global thread_flag
 
-        while motor_state is True and number <= 180:
-
-            data = str(ser.readline())
-            idx = data.find("\\n")
-            data = int(data[2:idx])
-            print (data)
-            data_ADC.append(data)       
-            degree.append(number)
-            number += 1        
-
-            self.plot() 
-            self.canvas.draw()
-            self.toolbar.update()
-
-        data_ADC = []
-        degree = []
+        if stop is False and thread_flag is False:
+            thread_l = threading.Thread(target=treadDataProcessing,)
+            thread_l.start()
+            thread_flag = True
+            self.plot()
 
     def _quit(self):
         cmd = b'0'
-        try:
+        if ser.isOpen() is False:
             ser.open()
-        except serial.SerialException:
-            ser.close()
-            ser.open()
-        finally:
-            ser.readline()
-            ser.write(cmd)
-            ser.close()
+
+        ser.readline()
+        ser.write(cmd)
+        ser.close()  
         self.master.quit()     # stops mainloop
         self.master.destroy()  # this is necessary on Windows to prevent
                                # Fatal Python Error: PyEval_RestoreThread: NULL tstate    
 
     def client_exit(self):
+        cmd = b'0'
+        if ser.isOpen() is False:
+            ser.open()
+
+        ser.readline()
+        ser.write(cmd)
+        ser.close()
         exit()    
  
 def main():
