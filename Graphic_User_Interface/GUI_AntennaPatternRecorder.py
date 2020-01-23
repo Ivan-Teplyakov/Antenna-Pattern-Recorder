@@ -1,5 +1,12 @@
 import tkinter
+import time
 import serial
+
+ser = serial.Serial()
+com_port = 'com4'
+baud_rate = 9600
+steps = 30
+timer = 24383
 
 from matplotlib.backends.backend_tkagg import (
     FigureCanvasTkAgg, NavigationToolbar2Tk)
@@ -9,26 +16,85 @@ from matplotlib.figure import Figure
 
 import matplotlib.pyplot as plt
    
+def serial_port_init():
+    """
+    Initialization of serial port
+    """
 
-ser = serial.Serial(port = 'com3', baudrate = 9600, timeout = 1)
+    ser.port = com_port
+    ser.baudrate = baud_rate
+    ser.timeout = 2
+
+    print('Baud Rate =',baud_rate)
+    print('Com Port =',com_port)
 
 data_ADC = list()
 degree = list()
 motor_state = False
-    
 
-# Here, we are creating our class, Window, and inheriting from the Frame
+
+# Creating class SetupBar
+class SetupBar(tkinter.Frame):
+    def __init__(self, parent=None):
+        tkinter.Frame.__init__(self, parent)
+        self.init_window()
+    def fetch_baud_rate(self):
+        global baud_rate
+        baud_rate = self.ent1.get()
+        serial_port_init()
+
+    def fetch_com_port(self):
+        global com_port
+        com_port = self.ent2.get()
+        serial_port_init()
+
+    def init_window(self):     
+            
+        self.label1 = tkinter.Label(self, text= 'Baud Rate:')
+        self.label1.grid(column = 0, row = 0, sticky=tkinter.E)
+        self.ent1 = tkinter.Entry(self)
+        self.ent1.grid(column = 1, row = 0)
+        self.ent1.insert(0, baud_rate)
+        self.UpdateBaudRate = tkinter.Button(self, text="Update Baud Rate", command=self.fetch_baud_rate)
+        self.UpdateBaudRate.grid(column = 1, row = 1, sticky=tkinter.W)
+
+        self.label2 = tkinter.Label(self, text= 'Serial Port:')
+        self.label2.grid(column = 0, row = 2, sticky=tkinter.E)
+        self.ent2 = tkinter.Entry(self)
+        self.ent2.insert(0, com_port) 
+        self.ent2.grid(column = 1, row = 2)
+        self.UpdateSerialPort = tkinter.Button(self, text="Update Serial Port", command=self.fetch_com_port)
+        self.UpdateSerialPort.grid(column = 1, row = 3, sticky=tkinter.W)
+
+        self.label3 = tkinter.Label(self, text= 'Steps:')
+        self.label3.grid(column = 0, row = 4, sticky=tkinter.E)
+        self.ent3 = tkinter.Entry(self)
+        self.ent3.insert(0, steps) 
+        self.ent3.grid(column = 1, row = 4)
+        self.UpdateSteps = tkinter.Button(self, text="    Update Steps    ")
+        self.UpdateSteps.grid(column = 1, row = 5, sticky=tkinter.W)
+
+        self.label4 = tkinter.Label(self, text= 'Time:')
+        self.label4.grid(column = 0, row = 6, sticky=tkinter.E)
+        self.ent4 = tkinter.Entry(self)
+        self.ent4.insert(0, timer) 
+        self.ent4.grid(column = 1, row = 6)
+        self.UpdateTime = tkinter.Button(self, text="    Update Time    ")
+        self.UpdateTime.grid(column = 1, row = 7, sticky=tkinter.W)
+   
+   
+# Here, we are creating our class, WorkSpace, and inheriting from the Frame
 # class. Frame is a class from the tkinter module. (see Lib/tkinter/__init__)
-class Window(tkinter.Frame):
+class WorkSpace(tkinter.Frame):
 
     # Define settings upon initialization. Here you can specify
-    def __init__(self, master=None):
+    def __init__(self, parent=None):
         
         # parameters that you want to send through the Frame class. 
-        tkinter.Frame.__init__(self, master)   
+        tkinter.Frame.__init__(self, parent)   
 
         #reference to the master widget, which is the tk window                 
-        self.master = master
+        #self.master = master
 
         #plot instanses
         self.fig, self.ax = plt.subplots()
@@ -58,34 +124,39 @@ class Window(tkinter.Frame):
 
         self.plot()
 
-        self.canvas = FigureCanvasTkAgg(self.fig, master=self.master)  # A tk.DrawingArea.
+        self.canvas = FigureCanvasTkAgg(self.fig, self)  # A tk.DrawingArea.
         self.canvas.draw()
         self.canvas.get_tk_widget().pack(side=tkinter.TOP, fill=tkinter.BOTH, expand=1)
 
-        self.toolbar = NavigationToolbar2Tk(self.canvas, self.master)
+        self.toolbar = NavigationToolbar2Tk(self.canvas, self)
         self.toolbar.update()
         self.canvas.get_tk_widget().pack(side=tkinter.TOP, fill=tkinter.BOTH, expand=1)
 
         # creating a button instances
-        self.button_quit = tkinter.Button(master=self.master, text="Quit", command=self._quit)
+        self.button_quit = tkinter.Button(self, text="Quit", command=self._quit)
         self.button_quit.pack(side=tkinter.RIGHT)
 
-        self.button_read_data = tkinter.Button(master=self.master, text="Plot", command=self.read_data)
+        self.button_read_data = tkinter.Button(self, text="Plot", command=self.read_data)
         self.button_read_data.pack(side=tkinter.RIGHT)
 
-        self.button_clear = tkinter.Button(master=self.master, text="Clear", command=self.clear)
+        self.button_clear = tkinter.Button(self, text="Clear", command=self.clear)
         self.button_clear.pack(side=tkinter.RIGHT)
 
-        self.leftRotation = tkinter.Button(master=self.master, text="Left Rotation", command=self.leftRotation)
+        self.leftRotation = tkinter.Button(self, text="Left Rotation", command=self.leftRotation)
         self.leftRotation.pack(side=tkinter.LEFT)
 
-        self.button_stop = tkinter.Button(master=self.master, text="Stop", command=self.stop)
+        self.button_stop = tkinter.Button(self, text="Stop", command=self.stop)
         self.button_stop.pack(side=tkinter.LEFT)
 
-        self.button_rightRotation = tkinter.Button(master=self.master, text="Right Rotation", command=self.rightRotation)
+        self.button_rightRotation = tkinter.Button(self, text="Right Rotation", command=self.rightRotation)
         self.button_rightRotation.pack(side=tkinter.LEFT)
 
+        self.button_start = tkinter.Button(self, text="Start record pattern", command=self.start_record)
+        self.button_start.pack(side=tkinter.LEFT)
 
+    def start_record(self):
+        self.leftRotation()
+        
     def plot(self):
         self.ax.clear()
         self.ax.set(xlabel='Numers', ylabel='ADC data', title='Antenna Pattern')
@@ -184,8 +255,6 @@ class Window(tkinter.Frame):
         data_ADC = []
         degree = []
 
-            
-
     def _quit(self):
         cmd = b'0'
         try:
@@ -203,23 +272,24 @@ class Window(tkinter.Frame):
 
     def client_exit(self):
         exit()    
-        
-
-
+ 
 def main():
     # root window created. Here, that would be the only window, but
     # you can later have windows within windows.
+    serial_port_init()
     root = tkinter.Tk()
-
-    #root.geometry("400x300")
+    
 
     #creation of an instance
-    app = Window(root)
-
+    app1 = SetupBar(root)
+    app1.pack(side=tkinter.LEFT)
+    app1.config(relief=tkinter.GROOVE, bd=2)
+    
+    app2 = WorkSpace(root)
+    app2.pack(side=tkinter.LEFT)
+    
     #mainloop 
     root.mainloop()
 
 if __name__ == '__main__':
     main()
-    
-
