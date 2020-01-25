@@ -300,7 +300,7 @@ class WorkSpace(tkinter.Frame):
         self.ax.clear()
         self.ax.set(xlabel='Degree', ylabel='Voltage', title='Antenna Pattern')
         self.ax.set_xlim(left = 0, right = 180)
-        self.ax.set_ylim(bottom = 0, top = 1100)
+        self.ax.set_ylim(bottom = 0, top = 5.5)
         self.ax.grid()
         self.canvas.draw()
         self.toolbar.update()
