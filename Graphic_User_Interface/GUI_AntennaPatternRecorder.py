@@ -10,17 +10,16 @@ import matplotlib.pyplot as plt
 
    
 ser = serial.Serial()
-com_port = 'com4'
-baud_rate = 9600
+com_port = 'com3'
+baud_rate = 115200
 steps = 30
 timer = 24383
-stop = False
 data_ADC = list()
 degree = list()
-motor_state = False
-number = 0
 thread_flag = False
-
+motorState = {"INACTIVE": 0, "ACTIVE_R": 1, "ACTIVE_L": 2}
+currentMotorState = motorState["INACTIVE"]
+stop = False
 
 
 def serial_port_init():
@@ -35,18 +34,41 @@ def serial_port_init():
 
     print('Baud Rate =',baud_rate)
     print('Com Port =',com_port)
+
+
+def convertToVoltage(data):
+    """ Convertation ADC data to voltage """
+    
+    MAX_ADC_DATA = 1023
+    MAX_VOLTAGE = 5
+
+    convertData = float((data / MAX_ADC_DATA) * MAX_VOLTAGE )
+    
+    return convertData
     
 
 def threadRightRotation():
+    """ It is called by thread. Starting of the step motor rotation to the
+    right. It writes '1' to the com port """
+
+    global currentMotorState
+    global motorState
     cmd = b'1'
+    
     if ser.isOpen() is False:
         ser.open()
 
     ser.readline()
-    ser.write(cmd) 
+    ser.write(cmd)
+    currentMotorState = motorState["ACTIVE_R"]
 
 
 def threadStop():
+    """ It is called by thread. Stop of the step motor. It writes '0' to the
+    com port """
+
+    global currentMotorState
+    global motorState
     cmd = b'0'
 
     if ser.isOpen() is False:
@@ -54,26 +76,36 @@ def threadStop():
 
     ser.readline()
     ser.write(cmd)
-    #ser.close()    
+    currentMotorState = motorState["INACTIVE"]   
     
 
 def threadLeftRotation():
+    """ It is called by thread. Starting of the step motor rotation to the
+    left. It writes '2' to the com port """
+
+    global currentMotorState
+    global motorState
     cmd = b'2'
+    
     if ser.isOpen() is False:
         ser.open()
 
     ser.readline()
-    ser.write(cmd) 
+    ser.write(cmd)
+    currentMotorState = motorState["ACTIVE_L"]
 
 def treadDataProcessing():
+    """ It is called by thread. It reads data from com port and writes them into data_ADC buffer"""
         
     global data_ADC
     global degree
     global stop
-    global number
     global thread_flag
+
+    number = 0
+    MAX_NUM = 185
             
-    while stop is False and number <= 181 and ser.isOpen:
+    while stop is False and number <= MAX_NUM and ser.isOpen() is True:
         ser.flushInput()
         try:
             data = ser.readline()
@@ -88,6 +120,8 @@ def treadDataProcessing():
                 try:
                     data = data.decode('ascii')
                     data = int(data)
+
+                    data = convertToVoltage(data)
                 except ValueError:
                     print("Incorrect input data")
                 except TypeError:
@@ -98,7 +132,6 @@ def treadDataProcessing():
                     number += 1
 
     thread_flag = False
-    number = 0
     data_ADC = []
     degree = []
 
@@ -175,8 +208,8 @@ class WorkSpace(tkinter.Frame):
         #with that, we want to then run init_window, which doesn't yet exist
         self.init_window()
 
-    #Creation of init_window
     def init_window(self):
+        """ This method creates content of the window"""
 
         self.menu = tkinter.Menu(self.master)
         self.parent.config(menu=self.menu)
@@ -233,35 +266,39 @@ class WorkSpace(tkinter.Frame):
         self.leftRotation()
         
     def plot(self):
+        """ This method is intended for drawing of the plot"""
         
         global degree
         global data_ADC
         global thread_flag
-        global number
         global stop
-        
-        self.ax.set(xlabel='Numbers', ylabel='ADC data', title='Antenna Pattern')
+        global motor_state
+
+        number = len(data_ADC)
+
+        self.ax.set(xlabel='Degree', ylabel='Voltage', title='Antenna Pattern')
         self.ax.set_xlim(left = 0, right = 180)
-        self.ax.set_ylim(bottom = 0, top = 1100)
+        self.ax.set_ylim(bottom = 0, top = 5.5)
         self.ax.plot(degree, data_ADC)
         self.ax.grid()
         self.canvas.draw()
         self.toolbar.update()
+   
         if thread_flag is True and stop is False and number <= 180:
-            self.parent.after(10, self.plot)
+            self.parent.after(10, self.plot) # It is timer. Timer expires every 10 ms and after that calls self.plot()
             self.ax.clear()
         else:
             self.parent.after_cancel(self.plot)
 
     def clear(self):
+        """ This method is intended for reseting of the plot"""
 
         global degree
         global data_ADC
-        global number
         global thread_flag
         
         self.ax.clear()
-        self.ax.set(xlabel='Numers', ylabel='ADC data', title='Antenna Pattern')
+        self.ax.set(xlabel='Degree', ylabel='Voltage', title='Antenna Pattern')
         self.ax.set_xlim(left = 0, right = 180)
         self.ax.set_ylim(bottom = 0, top = 1100)
         self.ax.grid()
@@ -269,15 +306,12 @@ class WorkSpace(tkinter.Frame):
         self.toolbar.update()
 
         if stop is True or thread_flag is False:
-            number = 0
             data_ADC = []
             degree = []
 
     def leftRotation(self):
-        """
-        Starting of the step motor rotation to the left.
-        It writes '2' to the com port
-        """
+        """ This method creates and launches thread which calls threadLeftRotation()
+            for left rotation of the motor"""
 
         global stop
         stop = False
@@ -285,10 +319,8 @@ class WorkSpace(tkinter.Frame):
         thread_lr.start()      
 
     def stop(self):
-        """
-        Stop of the step motor.
-        It writes '0' to the com port
-        """
+        """ This method creates and launches thread which calls threadStop()
+            for stop of the motor"""
 
         global stop
         stop = True
@@ -296,10 +328,8 @@ class WorkSpace(tkinter.Frame):
         thread_s.start()
 
     def rightRotation(self):
-        """
-        Starting of the step motor rotation to the right.
-        It writes '1' to the com port
-        """
+        """ This function creates and launches thread which calls threadRightRotation()
+            for right rotation of the motor"""
 
         global stop
         stop = False
@@ -307,21 +337,24 @@ class WorkSpace(tkinter.Frame):
         thread_rr.start()
 
     def dataProcessing(self):
+        """ This method creates and launches thread which calls treadDataProcessing()
+            for input data processing"""
 
-        global data_ADC
-        global degree
-        global motor_state
-        global number
         global stop
         global thread_flag
+        global motorState
+        global currentMotorState
 
-        if stop is False and thread_flag is False:
+        if (stop is False and thread_flag is False) and \
+           (currentMotorState == motorState["ACTIVE_L"] or currentMotorState == motorState["ACTIVE_R"]):
             thread_l = threading.Thread(target=treadDataProcessing,)
             thread_l.start()
             thread_flag = True
             self.plot()
 
     def _quit(self):
+        """Stops motor, closes com port and quits from program"""
+        
         cmd = b'0'
         if ser.isOpen() is False:
             ser.open()
@@ -334,6 +367,8 @@ class WorkSpace(tkinter.Frame):
                                # Fatal Python Error: PyEval_RestoreThread: NULL tstate    
 
     def client_exit(self):
+        """Stops motor, closes com port and quits from program"""
+        
         cmd = b'0'
         if ser.isOpen() is False:
             ser.open()
